@@ -31,8 +31,11 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.BulkWriteOptions;
 import com.mongodb.client.model.WriteModel;
 
+import com.pharbers.kafka.producer.PharbersKafkaProducer;
+import com.pharbers.kafka.schema.SinkRecall;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
@@ -43,6 +46,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -70,6 +74,11 @@ public class MongoDbSinkTask extends SinkTask {
 
     private SinkConverter sinkConverter = new SinkConverter();
 
+    //发送进度用
+    private PharbersKafkaProducer<String, SinkRecall> phaKafkaProducer = new PharbersKafkaProducer<>();
+    private String recallTopic;
+    private String jobID;
+
     @Override
     public String version() {
         return VersionUtil.getVersion();
@@ -96,7 +105,8 @@ public class MongoDbSinkTask extends SinkTask {
         writeModelStrategies = sinkConfig.getWriteModelStrategies();
         rateLimitSettings = sinkConfig.getRateLimitSettings();
         deleteOneModelDefaultStrategies = sinkConfig.getDeleteOneModelDefaultStrategies();
-
+        jobID = sinkConfig.getString(MongoDbSinkConnectorConfig.JOB_ID_CONF);
+        recallTopic = "recall_" + jobID;
     }
 
     @Override
@@ -132,7 +142,7 @@ public class MongoDbSinkTask extends SinkTask {
                     }
                 );
         });
-
+        phaKafkaProducer.produce(recallTopic, jobID, new SinkRecall(jobID, (long) records.size()));
     }
 
     private void processSinkRecords(MongoCollection<BsonDocument> collection, List<SinkRecord> batch) {

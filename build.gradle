@@ -44,6 +44,7 @@ task copyJarToTarget(type: Copy, dependsOn:[jar, shadowJar]) {
 }
 
 repositories {
+    mavenLocal()
     maven { url "http://packages.confluent.io/maven/" }
     maven { url "http://repo.maven.apache.org/maven2" }
 }
@@ -67,6 +68,7 @@ ext {
 
 dependencies {
     compile "org.apache.kafka:connect-api:${kafkaVersion}"
+    compile "com.pharbers:pharbers-kafka:1.0"
     compile "org.mongodb:mongodb-driver:${mongodbDriverVersion}"
     compile "ch.qos.logback:logback-classic:${logbackVersion}"
     testCompile "com.github.jcustenborder.kafka.connect:connect-utils:[0.2.31,0.2.1000)"
