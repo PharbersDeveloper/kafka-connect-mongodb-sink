@@ -40,8 +40,15 @@ public class SinkConverter {
 
         BsonDocument keyDoc = null;
         if(record.key() != null) {
-            keyDoc = getRecordConverter(record.key(),record.keySchema())
-                            .convert(record.keySchema(), record.key());
+            if (record.key() instanceof String) {
+                String jsonStr = "{\"key\":\"" + record.key().toString() + "\"}";
+                logger.info("Pharbers *** rawConverter convert jsonStr = " + jsonStr);
+                keyDoc = rawConverter.convert(record.keySchema(), jsonStr);
+            } else {
+                keyDoc = getRecordConverter(record.key(),record.keySchema())
+                        .convert(record.keySchema(), record.key());
+            }
+
         }
 
         BsonDocument valueDoc = null;

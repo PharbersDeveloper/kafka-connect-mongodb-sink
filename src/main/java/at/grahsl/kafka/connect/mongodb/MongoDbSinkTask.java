@@ -218,7 +218,7 @@ public class MongoDbSinkTask extends SinkTask {
                             buildWriteModel(Collection<SinkRecord> records,String collectionName) {
 
         List<WriteModel<BsonDocument>> docsToWrite = new ArrayList<>(records.size());
-        LOGGER.debug("building write model for {} record(s)", records.size());
+        LOGGER.info("building write model for {} record(s) = " + records.size());
         records.forEach(record -> {
                     SinkDocument doc = sinkConverter.convert(record);
                     processorChains.getOrDefault(collectionName,
