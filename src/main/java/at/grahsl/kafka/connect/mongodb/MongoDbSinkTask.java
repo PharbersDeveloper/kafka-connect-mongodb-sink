@@ -16,6 +16,7 @@
 
 package at.grahsl.kafka.connect.mongodb;
 
+import com.pharbers.kafka.producer.PharbersKafkaProducer;
 import at.grahsl.kafka.connect.mongodb.cdc.CdcHandler;
 import at.grahsl.kafka.connect.mongodb.converter.SinkConverter;
 import at.grahsl.kafka.connect.mongodb.converter.SinkDocument;
@@ -30,12 +31,9 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.BulkWriteOptions;
 import com.mongodb.client.model.WriteModel;
-
-import com.pharbers.kafka.producer.PharbersKafkaProducer;
 import com.pharbers.kafka.schema.SinkRecall;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.RetriableException;
@@ -46,7 +44,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -75,7 +72,7 @@ public class MongoDbSinkTask extends SinkTask {
     private SinkConverter sinkConverter = new SinkConverter();
 
     //发送进度用
-    private PharbersKafkaProducer<String, SinkRecall> phaKafkaProducer = new PharbersKafkaProducer<>();
+    private PharbersKafkaProducer<String, SinkRecall> phaKafkaProducer;
     private String recallTopic;
     private String jobID;
 
@@ -87,7 +84,7 @@ public class MongoDbSinkTask extends SinkTask {
     @Override
     public void start(Map<String, String> props) {
         LOGGER.info("starting MongoDB sink task");
-
+        phaKafkaProducer = new PharbersKafkaProducer<>();
         sinkConfig = new MongoDbSinkConnectorConfig(props);
 
         MongoClientURI uri = sinkConfig.buildClientURI();
@@ -142,7 +139,6 @@ public class MongoDbSinkTask extends SinkTask {
                     }
                 );
         });
-        phaKafkaProducer.produce(recallTopic, jobID, new SinkRecall(jobID, (long) records.size()));
     }
 
     private void processSinkRecords(MongoCollection<BsonDocument> collection, List<SinkRecord> batch) {
@@ -261,12 +257,18 @@ public class MongoDbSinkTask extends SinkTask {
 
     @Override
     public void flush(Map<TopicPartition, OffsetAndMetadata> map) {
-        //NOTE: flush is not used for now...
+        long offset = 0;
+        for(OffsetAndMetadata offsetAndMetadata : map.values()){
+            offset += offsetAndMetadata.offset();
+        }
+        LOGGER.info("offset********************" + offset);
+        phaKafkaProducer.produce(recallTopic, jobID, new SinkRecall(jobID, offset));
     }
 
     @Override
     public void stop() {
         LOGGER.info("stopping MongoDB sink task");
+        phaKafkaProducer.producer().close();
         mongoClient.close();
     }
 
